@@ -1,0 +1,61 @@
+name: Git Hub Pages Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Chose Deployment Mode'
+        required: true
+        default: 'release'
+        options:
+          - release with security check
+          - release
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.16.0'
+
+      - name: Install
+        run: npm i
+
+      - name: Run Snyk to check for vulnerabilities
+        if: ${{ github.event.inputs.environment == 'release with security check' }}
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: monitor
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      id-token: write
+      pages: write
+      contents: read
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
